@@ -1,4 +1,4 @@
-package com.csgd.main;
+package com.csgd.simulador;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -20,7 +20,7 @@ import com.csgd.domain.Regiao;
 import com.csgd.domain.ValorCapital;
 import com.csgd.fake.Calendario;
 
-public class Main {
+public class Simulador {
 	
 	public static final int NUMERO_DE_CLIENTES_SIMULAR = 100;
 	private static final int NUMERO_DE_MESES_SIMULAR = 36;
@@ -28,7 +28,7 @@ public class Main {
 	private static final int VALOR_PARCELA_MEDIA_SIMULAR = 200;
 
 	public static void main(String[] args) {
-		new Main().simular();
+		new Simulador().simular();
 	}
 	
 	public void simular() {
@@ -156,8 +156,8 @@ public class Main {
 		clienteMayara.adicionarPremio(premioMayara2);
 		Calculadora.getInstance().calcularCapital(premioMayara2);
 		
-		System.out.println("Capital - Região Brasil - planoItemConsultas: " + Capital.getCapitalPorRegiao(regiaoBrasil, planoItemConsultas));
-		System.out.println("Capital - Região Brasil - planoItemConsultas: " + Capital.getCapitalPorRegiao(regiaoBrasil, planoItemExames));
+		System.out.println("Capital - Regiï¿½o Brasil - planoItemConsultas: " + Capital.getCapitalPorRegiao(regiaoBrasil, planoItemConsultas));
+		System.out.println("Capital - Regiï¿½o Brasil - planoItemConsultas: " + Capital.getCapitalPorRegiao(regiaoBrasil, planoItemExames));
 
 		System.out.println("Eduardo - planoItemConsultas : " + clienteEduardo.getPremioAcumulado(regiaoBrasil, planoItemConsultas));
 		System.out.println("Eduardo - planoItemExames : " + clienteEduardo.getPremioAcumulado(regiaoBrasil, planoItemExames));
