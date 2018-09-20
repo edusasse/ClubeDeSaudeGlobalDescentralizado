@@ -6,12 +6,15 @@ public class Solicitacao {
 
 	private Fornecedor fornecedor;
 	private Cliente cliente;
+	private IPlanoItem planoItem;
 	private BigDecimal valor;
+ 
 
-	public Solicitacao(Fornecedor fornecedor, Cliente cliente, BigDecimal valor) {
+	public Solicitacao(Fornecedor fornecedor, Cliente cliente, IPlanoItem planoItem, BigDecimal valor) {
 		super();
 		this.fornecedor = fornecedor;
 		this.cliente = cliente;
+		this.planoItem = planoItem;
 		this.valor = valor;
 	}
 
@@ -27,5 +30,7 @@ public class Solicitacao {
 		return valor;
 	}
 
-	
+	public IPlanoItem getPlanoItem() {
+		return planoItem;
+	}
 }

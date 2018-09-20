@@ -16,6 +16,7 @@ import com.csgd.domain.IPlanoItem;
 import com.csgd.domain.IRegiao;
 import com.csgd.domain.Premio;
 import com.csgd.domain.Solicitacao;
+import com.csgd.domain.ValorCapital;
 import com.csgd.fake.Calendario;
 
 public class Calculadora {
@@ -38,92 +39,125 @@ public class Calculadora {
 	}
 
 	/**
-	 * Para efeito de demonstracao vamos assumir que todas as solicitações são
-	 * aprovadas e o capital é descontado.
+	 * Para efeito de demonstracao vamos assumir que todas as solicitaï¿½ï¿½es sï¿½o
+	 * aprovadas e o capital ï¿½ descontado.
 	 * 
 	 * @param solicitacao
 	 */
-	public synchronized void calcularCapital(Solicitacao solicitacao) {
-//		TODO
+	public synchronized void processarSolicitacao(Solicitacao solicitacao) {
+		ValorCapital capitalPorRegiaoEPlanoItem = solicitacao.getCliente().getCapitalPorRegiaoEPlanoItem(solicitacao.getFornecedor().getRegiao(), solicitacao.getPlanoItem());
+		if (capitalPorRegiaoEPlanoItem.getCapitalMaximoAcessivelComRestricaoPorCliente().compareTo(solicitacao.getValor()) <= 0) {
+			throw new IllegalArgumentException("Capital disponivel [" + capitalPorRegiaoEPlanoItem.getCapitalMaximoAcessivelComRestricaoPorCliente() + "] nÃ£o Ã© sufuciente para atender a solicitaÃ§Ã£o [" + solicitacao.getValor() + "]");
+		}
+		// calcula o capital total decrementando o valor da solicitacao
+		Capital.processarSoliciataoDeValorDoCapital(solicitacao.getFornecedor().getRegiao(), solicitacao.getPlanoItem(), solicitacao);
+		// calcula o capital de cada cliente apos a solicitacao para o plano item
+		calcularCapitalIndividual(solicitacao.getFornecedor().getRegiao(), solicitacao.getPlanoItem());
 	} 
-
-	public synchronized void calcularCapital(Premio premio) {
+	
+	/**
+	 * Processa o premio pago para cada plano item.
+	 * 
+	 * @param premio
+	 */
+	public synchronized void processarPremio(Premio premio) {
 		// fecha o premio
 		premio.close();
+		// atualiza o capital total
 		premio.getMapPlanoItem().values().stream()
 			.forEach(pi -> {
 				Capital.adicionarPremioCapital(premio.getRegiao(), pi, premio);
 			});
-		calcular(premio.getRegiao());
+		// calcula o capital de cada cliente apos o premio para os plano itens contidos no premio
+		calcularCapitalIndividual(premio);
 	}
 
-	private void calcular(IRegiao regiao) {
-		regiao.getPlano().getListaDeItensDoPlano().stream().forEach(planoItem -> {
-
-			if (!regiao.getPlano().getListaDeClientes().isEmpty()) {
-				// Mapeia todos os clientes para um objeto auxiliar sobre o qual sera realizado
-				// o calculo
-				final List<AuxCalc> listOfAuxCalc = regiao.getPlano().getListaDeClientes().stream()
-						.map(cliente -> new AuxCalc(cliente, cliente.getPremioAcumulado(regiao, planoItem)))
-						.collect(Collectors.toList());
-
-				while (true) {
-					// Obtem o menor valor acumulado
-					final AuxCalc clienteComMenorValorAcumulado = listOfAuxCalc.stream()
-							.filter(auxCalc -> auxCalc.getValor().compareTo(new BigDecimal(0)) > 0)
-							.min(Comparator.comparing(auxCalc -> auxCalc.getValor())).orElse(null);
-					// Se ja nao houver mais nenhum cliente com valor acima de zero o agrupamenteo
-					// chegou ao fim
-					if (clienteComMenorValorAcumulado == null) {
-						break;
-					}
-					// Agrupa os clientes para o valor menor no momento
-					final BigDecimal menorValorAuxParaOCalculo = clienteComMenorValorAcumulado.getValor();
-					listOfAuxCalc.stream().filter(
-							auxCalc -> auxCalc.getValor().compareTo(clienteComMenorValorAcumulado.getValor()) >= 0)
-							.forEach(auxCalc -> auxCalc.agruparPeloValor(menorValorAuxParaOCalculo));
-				}
-				
-				// Agrupa o valor representativo de cada cliente para que este seja distribuido igualmente entre outros clientes que contribuem dentro do mesmo grupo de valor
-				final Map<Integer, List<ValorHistorico>> map = new HashMap<>();
-				int n = 0;
-				for (int i = 0; i < listOfAuxCalc.size(); i++) {
-					while(true) {
-						final AuxCalc aux = listOfAuxCalc.get(i);
-						if (aux.getHistorico().size() > n) {
-							List<ValorHistorico> list = map.get(n);
-							if (list == null) {
-								list = new ArrayList<>();
-								map.put(new Integer(n), list);
-							}
-							list.add(aux.getHistorico().get(n));
-						} else {
-							break;
-						}
-						n++;
-					}
-					n = 0;
-				}
-
-				// processa o calculo baseado no agrupamento e guarda o valor do capital de cada cliente relativo ao plano item
-				map.keySet().stream().forEach(index -> {
-					final List<ValorHistorico> list = map.get(index);
-					int multiplyer = list.size();
-					final BigDecimal protudo = list.get(0).getMenorValor().multiply(new BigDecimal(multiplyer), new MathContext(6));
-					final BigDecimal valorCapital = Capital.getCapitalPorRegiao(regiao, planoItem);
-					final BigDecimal percentualAcesso = protudo.divide(valorCapital, new MathContext(6));
-					final BigDecimal valorCapitalAcessivel = valorCapital.multiply(percentualAcesso, new MathContext(6));
-					list.stream().forEach(c -> {
-						if (c.getAuxCalc().listaHistorico.get(index) != null) {
-							c.getAuxCalc().acumuladorCalculoDaDistribuicaoDeAcessoProporcionalAoCapitalPorPlanoItem(planoItem, valorCapitalAcessivel);
-						}
-					});
-				});
-
-				listOfAuxCalc.stream().forEach(aux -> aux.getCliente().guardarCalculoDaDistribuicaoDeAcessoProporcionalAoCapitalPorRegiaoEPlanoItem(regiao, planoItem, aux.valorAcumuladorCalculoDaDistribuicaoDeAcessoProporcionalAoCapitalPorPlanoItem(planoItem)));
-			}
+	/**
+	 * Calcula o novo capital individual por cliente para os plano itens do premio. 
+	 * @param premio
+	 */
+	protected void calcularCapitalIndividual(Premio premio) {
+		premio.getMapPlanoItem().values().stream().forEach(planoItem -> {
+			calcularCapitalIndividual(premio.getRegiao(), planoItem.getPlanoItem());
 		});
 
+	}
+
+	/**
+	 * Calcula o novo capital individual por cliente para o plano item 
+	 * 
+	 * @param regiao
+	 * @param planoItem
+	 */
+	protected void calcularCapitalIndividual(IRegiao regiao, IPlanoItem planoItem) {
+		if (!regiao.getPlano().getListaDeClientes().isEmpty()) {
+			// Mapeia todos os clientes para um objeto auxiliar sobre o qual sera realizado
+			// o calculo
+			final List<AuxCalc> listOfAuxCalc = regiao.getPlano().getListaDeClientes().stream()
+					.map(cliente -> new AuxCalc(cliente, cliente.getPremioAcumulado(regiao, planoItem)))
+					.collect(Collectors.toList());
+
+			while (true) {
+				// Obtem o menor valor acumulado
+				final AuxCalc clienteComMenorValorAcumulado = listOfAuxCalc.stream()
+						.filter(auxCalc -> auxCalc.getValor().compareTo(new BigDecimal(0)) > 0)
+						.min(Comparator.comparing(auxCalc -> auxCalc.getValor())).orElse(null);
+				// Se ja nao houver mais nenhum cliente com valor acima de zero o agrupamenteo
+				// chegou ao fim
+				if (clienteComMenorValorAcumulado == null) {
+					break;
+				}
+				// Agrupa os clientes para o valor menor no momento
+				final BigDecimal menorValorAuxParaOCalculo = clienteComMenorValorAcumulado.getValor();
+				listOfAuxCalc.stream().filter(
+						auxCalc -> auxCalc.getValor().compareTo(clienteComMenorValorAcumulado.getValor()) >= 0)
+						.forEach(auxCalc -> auxCalc.agruparPeloValor(menorValorAuxParaOCalculo));
+			}
+			
+			// Agrupa o valor representativo de cada cliente para que este seja distribuido igualmente entre outros clientes que contribuem dentro do mesmo grupo de valor
+			final Map<Integer, List<ValorHistorico>> map = new HashMap<>();
+			int n = 0;
+			for (int i = 0; i < listOfAuxCalc.size(); i++) {
+				while(true) {
+					final AuxCalc aux = listOfAuxCalc.get(i);
+					if (aux.getHistorico().size() > n) {
+						List<ValorHistorico> list = map.get(n);
+						if (list == null) {
+							list = new ArrayList<>();
+							map.put(new Integer(n), list);
+						}
+						list.add(aux.getHistorico().get(n));
+					} else {
+						break;
+					}
+					n++;
+				}
+				n = 0;
+			}
+
+			// processa o calculo baseado no agrupamento e guarda o valor do capital de cada cliente relativo ao plano item
+			map.keySet().stream().forEach(index -> {
+				final List<ValorHistorico> list = map.get(index);
+				int multiplyer = list.size();
+				// obtem o valor para o grupo de valor atual
+				final BigDecimal protudo = list.get(0).getMenorValor().multiply(new BigDecimal(multiplyer), new MathContext(6));
+				// saldo em capital para o plano item na regiao
+				final BigDecimal valorCapitalSaldo = Capital.getCapitalPorRegiaoSaldo(regiao, planoItem);
+				// total acumulado para determinar o percentual que a contribuicao representa
+				final BigDecimal valorCapitalTotal = Capital.getCapitalPorRegiaoTotal(regiao, planoItem);
+				// representacao das contribuicao em relacao ao capital total
+				final BigDecimal percentualAcesso = protudo.divide(valorCapitalTotal, new MathContext(6));
+				// aplica o percentual sobre o saldo do capital
+				final BigDecimal valorCapitalAcessivel = valorCapitalSaldo.multiply(percentualAcesso, new MathContext(6));
+				list.stream().forEach(c -> {
+					if (c.getAuxCalc().listaHistorico.get(index) != null) {
+						c.getAuxCalc().acumuladorCalculoDaDistribuicaoDeAcessoProporcionalAoCapitalPorPlanoItem(planoItem, valorCapitalAcessivel);
+					}
+				});
+			});
+
+			listOfAuxCalc.stream().forEach(aux -> aux.getCliente().guardarCalculoDaDistribuicaoDeAcessoProporcionalAoCapitalPorRegiaoEPlanoItem(regiao, planoItem, aux.valorAcumuladorCalculoDaDistribuicaoDeAcessoProporcionalAoCapitalPorPlanoItem(planoItem)));
+		}
 	}
  
 	private class AuxCalc {

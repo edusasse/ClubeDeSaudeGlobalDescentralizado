@@ -11,12 +11,14 @@ import com.csgd.calc.Calculadora;
 import com.csgd.calc.Capital;
 import com.csgd.constantes.Parametros;
 import com.csgd.domain.Cliente;
+import com.csgd.domain.Fornecedor;
 import com.csgd.domain.IPlanoItem;
 import com.csgd.domain.Plano;
 import com.csgd.domain.PlanoItem;
 import com.csgd.domain.PlanoItemParametro;
 import com.csgd.domain.Premio;
 import com.csgd.domain.Regiao;
+import com.csgd.domain.Solicitacao;
 import com.csgd.domain.ValorCapital;
 import com.csgd.fake.Calendario;
 
@@ -69,8 +71,40 @@ public class Simulador {
 				Calendario.getInstance().definirDataInicial(new Date());
 				Premio premio = new Premio(regiaoBrasil, cli, new BigDecimal(rand.nextInt(VALOR_PARCELA_MEDIA_SIMULAR + 1 - VALOR_PARCELA_VARIACAO_SIMULAR) + VALOR_PARCELA_VARIACAO_SIMULAR));
 				cli.adicionarPremio(premio);
-				Calculadora.getInstance().calcularCapital(premio);
+				Calculadora.getInstance().processarPremio(premio);
 			}
+			
+			for (Cliente cli: listaDeClientes) {
+				// probabilidade de requerer uma solicitacao
+				if ((rand.nextInt(100)+1) < 85) {
+					if (cli.getControleDeCarencia(regiaoBrasil, planoItemConsultas) > 0) {
+						System.out.println("Carrencia");
+					}
+					Calendario.getInstance().definirDataInicial(new Date());
+					Solicitacao solicitacao = new Solicitacao(new Fornecedor("Medico", regiaoBrasil), cli, planoItemConsultas, new BigDecimal(rand.nextInt(250 + 1 - 50) + 500));
+					try {
+						final ValorCapital valorCapitalAntes = cli.getCapitalPorRegiaoEPlanoItem(regiaoBrasil, solicitacao.getPlanoItem());
+						final BigDecimal capitalPorRegiaoAntes = Capital.getCapitalPorRegiaoSaldo(regiaoBrasil, solicitacao.getPlanoItem());
+						Calculadora.getInstance().processarSolicitacao(solicitacao);
+						final BigDecimal capitalPorRegiaoDepois = Capital.getCapitalPorRegiaoSaldo(regiaoBrasil, solicitacao.getPlanoItem());
+						final ValorCapital valorCapitalDepois = cli.getCapitalPorRegiaoEPlanoItem(regiaoBrasil, solicitacao.getPlanoItem());
+						System.out.println(" [OK ] Cliente [" + cli.getNome() + "] solicitação processada com sucesso [" + solicitacao.getValor() + 
+								"] Antes: " +
+								"Capital por Regiao/PlanoItem [" + capitalPorRegiaoAntes + "] " +
+								"Capital Acessivel (max Cli) [" + 
+								valorCapitalAntes.getCapitalMaximoAcessivelComRestricaoPorCliente() + "](" + 
+								Parametros.CAPITAL_MAXIMO_ACESSIVEL_POR_CLIENTE.getValorParametro() + ") " +
+								"% Depois: " +
+								"Capital por Regiao/PlanoItem [" + capitalPorRegiaoDepois + "] " +
+								"Capital Acessivel (max Cli) [" + 
+								valorCapitalDepois.getCapitalMaximoAcessivelComRestricaoPorCliente() + "](" + 
+								Parametros.CAPITAL_MAXIMO_ACESSIVEL_POR_CLIENTE.getValorParametro() + "%)");
+					} catch (Exception e) {
+						System.out.println(" [NOK] Cliente [" + cli.getNome() + "] " + e.getMessage());
+					}
+				}
+			}
+			
 			meses--;
 			
 			planoBrasil.getListaDeItensDoPlano().stream()
@@ -98,12 +132,12 @@ public class Simulador {
 		System.out.println("\n == Total de capital acumulado por Plano Item ==");
 		planoBrasil.getListaDeItensDoPlano().stream()
 		.forEach(planoItem -> 
-			System.out.println("Capital por Plano Item [" + planoItem.getNome() + "] Valor [" + Capital.getCapitalPorRegiao(regiaoBrasil, planoItem) + "]"));
+			System.out.println("Capital por Plano Item [" + planoItem.getNome() + "] Valor [" + Capital.getCapitalPorRegiaoSaldo(regiaoBrasil, planoItem) + "]"));
 		 
 		
 	}
 	
-	public static void mainStatic(String[] args) {
+	public void simular2() {
 		
 		// Calendario
 		final Calendario cal = Calendario.getInstance();		
@@ -140,24 +174,24 @@ public class Simulador {
 		Calendario.getInstance().definirDataInicial(new Date());
 		Premio premio1 = new Premio(regiaoBrasil, clienteEduardo, new BigDecimal(150));
 		clienteEduardo.adicionarPremio(premio1);
-		Calculadora.getInstance().calcularCapital(premio1);		
+		Calculadora.getInstance().processarPremio(premio1);		
 		
 		Premio premioMayara1 = new Premio(regiaoBrasil, clienteMayara, new BigDecimal(200));
 		clienteMayara.adicionarPremio(premioMayara1);
-		Calculadora.getInstance().calcularCapital(premioMayara1);
+		Calculadora.getInstance().processarPremio(premioMayara1);
 		
 		// -- Periodo 2
 		Calendario.getInstance().incrementarEm1Mes();
 		Premio premio2 = new Premio(regiaoBrasil, clienteEduardo, new BigDecimal(150));
 		clienteEduardo.adicionarPremio(premio2);
-		Calculadora.getInstance().calcularCapital(premio2);
+		Calculadora.getInstance().processarPremio(premio2);
 		
 		Premio premioMayara2 = new Premio(regiaoBrasil, clienteMayara, new BigDecimal(200));
 		clienteMayara.adicionarPremio(premioMayara2);
-		Calculadora.getInstance().calcularCapital(premioMayara2);
+		Calculadora.getInstance().processarPremio(premioMayara2);
 		
-		System.out.println("Capital - Regi�o Brasil - planoItemConsultas: " + Capital.getCapitalPorRegiao(regiaoBrasil, planoItemConsultas));
-		System.out.println("Capital - Regi�o Brasil - planoItemConsultas: " + Capital.getCapitalPorRegiao(regiaoBrasil, planoItemExames));
+		System.out.println("Capital - Regi�o Brasil - planoItemConsultas: " + Capital.getCapitalPorRegiaoSaldo(regiaoBrasil, planoItemConsultas));
+		System.out.println("Capital - Regi�o Brasil - planoItemConsultas: " + Capital.getCapitalPorRegiaoSaldo(regiaoBrasil, planoItemExames));
 
 		System.out.println("Eduardo - planoItemConsultas : " + clienteEduardo.getPremioAcumulado(regiaoBrasil, planoItemConsultas));
 		System.out.println("Eduardo - planoItemExames : " + clienteEduardo.getPremioAcumulado(regiaoBrasil, planoItemExames));

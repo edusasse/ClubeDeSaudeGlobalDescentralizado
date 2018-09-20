@@ -19,4 +19,9 @@ public class PlanoItem implements IPlanoItem {
 	public void setNome(String nome) {
 		this.nome = nome;
 	}
+	
+	@Override
+	public IPlanoItem getPlanoItem() {
+		return this;
+	}
 }

@@ -50,7 +50,12 @@ public class Cliente extends Pessoa {
 		if (variacao.compareTo(new BigDecimal(0)) != 0) {
 			valor = valor.multiply(variacao, new MathContext(6));
 		}
-		final PlanoItemParametro planoItemParametro = (PlanoItemParametro) mapPlanoItem.get(regiao).get(planoItem);
+		PlanoItemParametro planoItemParametro = null;
+		if (!(planoItem instanceof PlanoItemParametro)) {
+			planoItemParametro = (PlanoItemParametro) mapPlanoItem.get(regiao).get(planoItem);
+		} else {
+			planoItemParametro = (PlanoItemParametro) planoItem;
+		}
 		if (planoItemParametro.getControleDeCarencia() > 0) {
 			valor = new BigDecimal(0); 
 		} else if (planoItemParametro.getControleDeEntrada() < planoItemParametro.getControleDeEntradaDefinicaoInicial()) {
@@ -86,7 +91,7 @@ public class Cliente extends Pessoa {
 	}
 	
 	/**
-	 * Traz o valor acumulado dos prêmios.
+	 * Traz o valor acumulado dos prï¿½mios.
 	 * 
 	 * @return
 	 */
@@ -105,7 +110,7 @@ public class Cliente extends Pessoa {
 	}
 	
 	/**
-	 * Retorna a média de todos os premios na lista.
+	 * Retorna a mï¿½dia de todos os premios na lista.
 	 * 
 	 * @return
 	 */
@@ -127,7 +132,7 @@ public class Cliente extends Pessoa {
 	}
 	
 	/**
-	 * Retorna a média dos premios sem o ultimo.
+	 * Retorna a mï¿½dia dos premios sem o ultimo.
 	 * 
 	 * @return
 	 */
@@ -156,7 +161,7 @@ public class Cliente extends Pessoa {
 	 */
 	public void adicionarPremio(Premio premio) {
 		if (premio.isClosed()) {
-			throw new IllegalArgumentException("Premio não pode estar fechado no momento da adição a lista.");
+			throw new IllegalArgumentException("Premio nï¿½o pode estar fechado no momento da adiï¿½ï¿½o a lista.");
 		}
 		final Map<IPlanoItem, IPlanoItem> mPlanoItem = this.mapPlanoItem.get(premio.getRegiao());
 		mPlanoItem.values().stream().forEach(planoItem -> {
@@ -207,10 +212,10 @@ public class Cliente extends Pessoa {
 		
 		// Verifica se o plano reconhece o plano item
 		if (!plano.contemPlanoItem(key)){
-			throw new IllegalArgumentException("O plano item [" + planoItem.getNome() + "] não é reconhecido pelo plano");
+			throw new IllegalArgumentException("O plano item [" + planoItem.getNome() + "] nï¿½o ï¿½ reconhecido pelo plano");
 		}
 
-		// Verifica se o percentual é valido
+		// Verifica se o percentual ï¿½ valido
 		if (planoItem instanceof PlanoItemParametro) {
 			verificarPercentual(regiao, (PlanoItemParametro) planoItem);
 		}
@@ -249,7 +254,7 @@ public class Cliente extends Pessoa {
 					.orElse(new BigDecimal(0));
 				
 				if (totalPresente.add(planoItem.getPercentualAlocacao()).compareTo(new BigDecimal(100)) > 0) {
-					throw new IllegalArgumentException("Valor atual alocado nos itens do plano é de [" + totalPresente + "], para alocar este plano é preciso reconfigurar os demais.");
+					throw new IllegalArgumentException("Valor atual alocado nos itens do plano ï¿½ de [" + totalPresente + "], para alocar este plano ï¿½ preciso reconfigurar os demais.");
 				}
 			}
 		}
@@ -258,7 +263,7 @@ public class Cliente extends Pessoa {
 	}
 	
 	/**
-	 * Cria uma cópia da configuração dos itens do plano.
+	 * Cria uma cï¿½pia da configuraï¿½ï¿½o dos itens do plano.
 	 * 
 	 * @param regiao
 	 * @return
