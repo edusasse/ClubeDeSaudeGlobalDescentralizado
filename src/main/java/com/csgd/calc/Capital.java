@@ -2,6 +2,7 @@ package com.csgd.calc;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -73,16 +74,17 @@ public class Capital {
 		// Guarda o premio para registro historico
 		Map<Premio, BigDecimal> mapPremios = processarPremioRegistroHistorico(regiao, planoItem, premio);
 		
-		final BigDecimal valorAcumuladoSaldo = mapPremios.values().stream()
+		final BigDecimal valorAcumuladoDosPremiosPagos = mapPremios.values().stream()
 			.reduce(BigDecimal::add)
 			.orElse(new BigDecimal(0));
 		
+		BigDecimal valor = premio.getPercentualAlocacao(planoItem).multiply(premio.getValor(), new MathContext(16, RoundingMode.HALF_UP));
 		
-		adicionarPremioCapitalAosMapasDeControle(regiao, planoItem, valorAcumuladoSaldo, mapaDeCapitalPorRegiaoSaldo);
-		adicionarPremioCapitalAosMapasDeControle(regiao, planoItem, valorAcumuladoSaldo, mapaDeCapitalPorRegiaoTotal);
+		adicionarPremioCapitalAosMapasDeControle(regiao, planoItem, valor, mapaDeCapitalPorRegiaoSaldo);
+		substituirPremioCapitalAosMapasDeControle(regiao, planoItem, valorAcumuladoDosPremiosPagos, mapaDeCapitalPorRegiaoTotal);
 	}
 
-	protected static void adicionarPremioCapitalAosMapasDeControle(IRegiao regiao, IPlanoItem planoItem, final BigDecimal valorAcumuladoSaldo,
+	protected static void substituirPremioCapitalAosMapasDeControle(IRegiao regiao, IPlanoItem planoItem, final BigDecimal valor,
 			Map<IRegiao, Map<IPlanoItem, BigDecimal>> map) {
 		Map<IPlanoItem, BigDecimal> mapPlanoItemSaldo = map.get(regiao);
 		if (mapPlanoItemSaldo == null) {
@@ -94,7 +96,25 @@ public class Capital {
 				}
 			}
 		}
-		mapPlanoItemSaldo.put(planoItem, valorAcumuladoSaldo);
+		mapPlanoItemSaldo.put(planoItem, valor);
+	}
+	
+	protected static void adicionarPremioCapitalAosMapasDeControle(IRegiao regiao, IPlanoItem planoItem, final BigDecimal valor,
+			Map<IRegiao, Map<IPlanoItem, BigDecimal>> map) {
+		Map<IPlanoItem, BigDecimal> mapPlanoItemSaldo = map.get(regiao);
+		if (mapPlanoItemSaldo == null) {
+			synchronized (Capital.class) {
+				mapPlanoItemSaldo = map.get(regiao);
+				if (mapPlanoItemSaldo == null) {
+					mapPlanoItemSaldo = new HashMap<>();
+					mapPlanoItemSaldo.put(planoItem, new BigDecimal(0));
+					map.put(regiao, mapPlanoItemSaldo);
+				}
+			}
+		}
+		
+		final BigDecimal add = mapPlanoItemSaldo.get(planoItem).add(valor);
+		mapPlanoItemSaldo.put(planoItem, add);
 	}
 
 	protected static Map<Premio, BigDecimal> processarPremioRegistroHistorico(IRegiao regiao, IPlanoItem planoItem, Premio premio) {
@@ -119,7 +139,7 @@ public class Capital {
 			}
 		}
 		
-		BigDecimal valor = premio.getPercentualAlocacao(planoItem).multiply(premio.getValor());
+		BigDecimal valor = premio.getPercentualAlocacao(planoItem).multiply(premio.getValor(), new MathContext(16, RoundingMode.HALF_UP));
 		mapPremios.put(premio, valor);
 		return mapPremios;
 	}
@@ -149,14 +169,14 @@ public class Capital {
 			}
 		}
 		
-		final BigDecimal pctFatorLimitanteDoCapitalPorCliente = new BigDecimal(Parametros.CAPITAL_MAXIMO_ACESSIVEL_POR_CLIENTE.getValorParametro()).divide(new BigDecimal(100), new MathContext(6));
+		final BigDecimal pctFatorLimitanteDoCapitalPorCliente = new BigDecimal(Parametros.CAPITAL_MAXIMO_ACESSIVEL_POR_CLIENTE.getValorParametro()).divide(new BigDecimal(100), new MathContext(16, RoundingMode.HALF_UP));
 		final BigDecimal capitalTotal = mapPlanoItemSaldo.get(planoItem);
-		final BigDecimal capitalAcessivelPorCliente = capitalTotal.multiply(pctFatorLimitanteDoCapitalPorCliente, new MathContext(6));
+		final BigDecimal capitalAcessivelPorCliente = capitalTotal.multiply(pctFatorLimitanteDoCapitalPorCliente, new MathContext(16, RoundingMode.HALF_UP));
 		
-		if (solicitacao.getValor().compareTo(capitalAcessivelPorCliente) < 0) {
+		if (solicitacao.getValor().setScale(4,  BigDecimal.ROUND_HALF_UP).compareTo(capitalAcessivelPorCliente.setScale(4,  BigDecimal.ROUND_HALF_UP)) <= 0) {
 			mapPlanoItemSaldo.put(planoItem, capitalTotal.subtract(solicitacao.getValor()));
 		} else {
-			throw new IllegalArgumentException("O capital disponivel [" + capitalAcessivelPorCliente + "] não é suficiente para processar esta solicitação de [" + solicitacao.getValor() + "]. Limite do capital por cliente definido em [" + Parametros.CAPITAL_MAXIMO_ACESSIVEL_POR_CLIENTE.getValorParametro() + " %]");
+			throw new IllegalArgumentException("O capital disponivel [" + capitalAcessivelPorCliente.setScale(4,  BigDecimal.ROUND_HALF_UP) + "] não é suficiente para processar esta solicitação de [" + solicitacao.getValor().setScale(4,  BigDecimal.ROUND_HALF_UP) + "]. Limite do capital por cliente definido em [" + Parametros.CAPITAL_MAXIMO_ACESSIVEL_POR_CLIENTE.getValorParametro() + " %]");
 		}
 
 		// Guarda a solicitacao para regisro

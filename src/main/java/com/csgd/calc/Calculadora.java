@@ -2,6 +2,7 @@ package com.csgd.calc;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -14,6 +15,7 @@ import java.util.stream.Collectors;
 import com.csgd.domain.Cliente;
 import com.csgd.domain.IPlanoItem;
 import com.csgd.domain.IRegiao;
+import com.csgd.domain.PlanoItemParametro;
 import com.csgd.domain.Premio;
 import com.csgd.domain.Solicitacao;
 import com.csgd.domain.ValorCapital;
@@ -45,8 +47,11 @@ public class Calculadora {
 	 * @param solicitacao
 	 */
 	public synchronized void processarSolicitacao(Solicitacao solicitacao) {
+		if (solicitacao.getValor().compareTo(new BigDecimal(0)) <= 0) {
+			throw new IllegalArgumentException("Valor da solicitação [" + solicitacao.getValor() + "] é inválido.");			
+		}
 		ValorCapital capitalPorRegiaoEPlanoItem = solicitacao.getCliente().getCapitalPorRegiaoEPlanoItem(solicitacao.getFornecedor().getRegiao(), solicitacao.getPlanoItem());
-		if (capitalPorRegiaoEPlanoItem.getCapitalMaximoAcessivelComRestricaoPorCliente().compareTo(solicitacao.getValor()) <= 0) {
+		if (capitalPorRegiaoEPlanoItem.getCapitalMaximoAcessivelComRestricaoPorCliente().setScale(4,BigDecimal.ROUND_HALF_UP).compareTo(solicitacao.getValor().setScale(4, BigDecimal.ROUND_HALF_UP)) < 0) {
 			throw new IllegalArgumentException("Capital disponivel [" + capitalPorRegiaoEPlanoItem.getCapitalMaximoAcessivelComRestricaoPorCliente() + "] não é sufuciente para atender a solicitação [" + solicitacao.getValor() + "]");
 		}
 		// calcula o capital total decrementando o valor da solicitacao
@@ -140,15 +145,15 @@ public class Calculadora {
 				final List<ValorHistorico> list = map.get(index);
 				int multiplyer = list.size();
 				// obtem o valor para o grupo de valor atual
-				final BigDecimal protudo = list.get(0).getMenorValor().multiply(new BigDecimal(multiplyer), new MathContext(6));
+				final BigDecimal protudo = list.get(0).getMenorValor().multiply(new BigDecimal(multiplyer).setScale(16, BigDecimal.ROUND_HALF_UP), new MathContext(16, RoundingMode.HALF_UP));
 				// saldo em capital para o plano item na regiao
 				final BigDecimal valorCapitalSaldo = Capital.getCapitalPorRegiaoSaldo(regiao, planoItem);
 				// total acumulado para determinar o percentual que a contribuicao representa
 				final BigDecimal valorCapitalTotal = Capital.getCapitalPorRegiaoTotal(regiao, planoItem);
 				// representacao das contribuicao em relacao ao capital total
-				final BigDecimal percentualAcesso = protudo.divide(valorCapitalTotal, new MathContext(6));
+				final BigDecimal percentualAcesso = protudo.divide(valorCapitalTotal, new MathContext(16, RoundingMode.HALF_UP)).setScale(16, BigDecimal.ROUND_HALF_UP);
 				// aplica o percentual sobre o saldo do capital
-				final BigDecimal valorCapitalAcessivel = valorCapitalSaldo.multiply(percentualAcesso, new MathContext(6));
+				final BigDecimal valorCapitalAcessivel = valorCapitalSaldo.multiply(percentualAcesso, new MathContext(16, RoundingMode.HALF_UP));
 				list.stream().forEach(c -> {
 					if (c.getAuxCalc().listaHistorico.get(index) != null) {
 						c.getAuxCalc().acumuladorCalculoDaDistribuicaoDeAcessoProporcionalAoCapitalPorPlanoItem(planoItem, valorCapitalAcessivel);

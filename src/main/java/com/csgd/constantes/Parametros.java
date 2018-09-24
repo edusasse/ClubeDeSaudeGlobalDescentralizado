@@ -4,7 +4,7 @@ public enum Parametros {
 
 	PERIODO_DE_CARENCIA_MINIMO((byte)3),
 	PERIODOS_DE_ENTRADA((byte)24),
-	CAPITAL_MAXIMO_ACESSIVEL_POR_CLIENTE((byte)50),
+	CAPITAL_MAXIMO_ACESSIVEL_POR_CLIENTE((byte) 5),
 	FATOR_DE_VARIACAO_MAXIMO((byte)5); // nao utilizado na implementacao
 	
 	byte value;

@@ -2,6 +2,7 @@ package com.csgd.domain;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.math.RoundingMode;
 
 import com.csgd.constantes.Parametros;
 
@@ -31,12 +32,12 @@ public class PlanoItemParametro extends PlanoItemDecorator {
 	 */
 	public void setPercentualAlocacao(BigDecimal percentualAlocacao) {
 		if (percentualAlocacao.compareTo(new BigDecimal(0)) < 0) {
-			throw new IllegalArgumentException("O percentual alocado para o plano item [" + getPlanoItem().getNome() + "] não pode ser menor que zero!");
+			throw new IllegalArgumentException("O percentual alocado para o plano item [" + getPlanoItem().getNome() + "] nï¿½o pode ser menor que zero!");
 		}
 		if (percentualAlocacao.compareTo(new BigDecimal(100)) > 0) {
-			throw new IllegalArgumentException("O percentual alocado para o plano item [" + getPlanoItem().getNome() + "] não pode ser maior que cem!");
+			throw new IllegalArgumentException("O percentual alocado para o plano item [" + getPlanoItem().getNome() + "] nï¿½o pode ser maior que cem!");
 		}
-		this.percentualAlocacao = percentualAlocacao.divide(new BigDecimal(100, new MathContext(6)));
+		this.percentualAlocacao = percentualAlocacao.divide(new BigDecimal(100, new MathContext(16, RoundingMode.HALF_UP)));
 	}
 	 	
 	/**
